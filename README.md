@@ -22,5 +22,4 @@ This project simulates the impact of various pension reform scenarios on the fin
 - Results in tables and graphs
 - Cross-scenario comparisons with insights
 
-## 📁 Project Structure
 
