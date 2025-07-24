@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation du Système de Retraite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom styles to complement Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+
+        /* Custom style for scenario cards */
+        .scenario-card {
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+
+        .scenario-card input:checked + .card-content {
+            border-color: #2563eb; /* blue-600 */
+            background-color: #eff6ff; /* blue-50 */
+            box-shadow: 0 0 0 2px #2563eb;
+        }
+        
+        .scenario-card .check-icon {
+            transition: opacity 0.2s ease-in-out;
+            opacity: 0;
+        }
+
+        .scenario-card input:checked + .card-content .check-icon {
+            opacity: 1;
+        }
+
+        /* Custom loader animation */
+        .loader {
+            border: 4px solid #e5e7eb; /* gray-200 */
+            border-top: 4px solid #2563eb; /* blue-600 */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom styles for tabs */
+        .tab-btn.active {
+            border-color: #2563eb; /* blue-600 */
+            color: #2563eb;
+            font-weight: 600;
+        }
+        
+        /* Hiding the actual checkbox but keeping it accessible */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="notification-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full text-center">
+            <div id="modal-icon-container" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                 <svg class="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-medium text-slate-900 mb-2">Erreur</h3>
+            <p id="modal-message" class="text-sm text-slate-500 mb-6">Message content goes here.</p>
+            <button onclick="hideModal()" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Fermer
+            </button>
+        </div>
+    </div>
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <header class="mb-8">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M16.2 7.8l-2.2 2.2-2.2-2.2"/><path d="M11.8 16.2l2.2-2.2 2.2 2.2"/><path d="M7.8 11.8l2.2 2.2-2.2 2.2"/><path d="m14 14-4-4"/></svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Simulateur de Retraite</h1>
+                    <p class="text-slate-500">Projection stochastique 2025-2035</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 space-y-8">
+                
+                <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold mb-5 flex items-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M21.24 12.24a10 10 0 1 1-8.49-8.49"/><path d="M12 12h.01"/></svg>
+                        <span>Paramètres de Simulation</span>
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <label for="germe_ix" class="block text-sm font-medium text-slate-600 mb-1">Germe IX</label>
+                            <input type="number" id="germe_ix" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" value="1" min="1">
+                        </div>
+                        <div>
+                            <label for="germe_iy" class="block text-sm font-medium text-slate-600 mb-1">Germe IY</label>
+                            <input type="number" id="germe_iy" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" value="1" min="1">
+                        </div>
+                        <div>
+                            <label for="germe_iz" class="block text-sm font-medium text-slate-600 mb-1">Germe IZ</label>
+                            <input type="number" id="germe_iz" class="w-full p-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" value="1" min="1">
+                        </div>
+                    </div>
+                    <button onclick="generateRandomSeeds()" class="w-full md:w-auto bg-slate-100 text-slate-700 font-semibold py-2 px-4 rounded-md hover:bg-slate-200 transition flex items-center justify-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
+                        <span>Générer des germes aléatoires</span>
+                    </button>
+                </section>
+
+                <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold mb-5 flex items-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M19 4v16H5V4h14m-9 4h4M9 12h4M9 16h4M3 20h18"/></svg>
+                        <span>Choisir les Scénarios à Simuler</span>
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="scenario-card">
+                            <input type="checkbox" name="scenarios" value="1" checked class="sr-only">
+                            <div class="card-content border-2 border-slate-200 rounded-lg p-4 flex items-center justify-between h-full">
+                                <div>
+                                    <h3 class="font-bold text-slate-800">Scénario 1</h3>
+                                    <p class="text-sm text-slate-500">Retraite à 63 ans</p>
+                                </div>
+                                <div class="check-icon text-blue-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="scenario-card">
+                            <input type="checkbox" name="scenarios" value="2" class="sr-only">
+                            <div class="card-content border-2 border-slate-200 rounded-lg p-4 flex items-center justify-between h-full">
+                                <div>
+                                    <h3 class="font-bold text-slate-800">Scénario 2</h3>
+                                    <p class="text-sm text-slate-500">Retraite à 65 ans</p>
+                                </div>
+                                <div class="check-icon text-blue-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="scenario-card">
+                            <input type="checkbox" name="scenarios" value="3" class="sr-only">
+                            <div class="card-content border-2 border-slate-200 rounded-lg p-4 flex items-center justify-between h-full">
+                                <div>
+                                    <h3 class="font-bold text-slate-800">Scénario 3</h3>
+                                    <p class="text-sm text-slate-500">Cotisations augmentées</p>
+                                </div>
+                                <div class="check-icon text-blue-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                </div>
+                            </div>
+                        </label>
+                        <label class="scenario-card">
+                            <input type="checkbox" name="scenarios" value="4" class="sr-only">
+                            <div class="card-content border-2 border-slate-200 rounded-lg p-4 flex items-center justify-between h-full">
+                                <div>
+                                    <h3 class="font-bold text-slate-800">Scénario 4</h3>
+                                    <p class="text-sm text-slate-500">Cotis+ & Pension-</p>
+                                </div>
+                                <div class="check-icon text-blue-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </section>
+            </div>
+
+            <div class="lg:col-span-1">
+                <section class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 sticky top-8">
+                     <h2 class="text-xl font-bold mb-5 flex items-center space-x-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="m18 3-3 3h-3v3l-4 4 2 2 4-4v-3h3z"/><path d="m18 13-1.5 1.5"/><path d="m15 16-1.5 1.5"/><path d="M12 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h7"/></svg>
+                        <span>Actions</span>
+                    </h2>
+                    <div class="space-y-4">
+                        <button onclick="runSimulation()" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-500/30 flex items-center justify-center space-x-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="m5 19 7-7 7 7"/></svg>
+                            <span>Lancer la Simulation</span>
+                        </button>
+                        <p class="text-xs text-slate-400 text-center">Cliquez ici pour démarrer le calcul avec les paramètres et scénarios sélectionnés.</p>
+                    </div>
+                    <div id="loader" class="hidden mt-6 text-center">
+                        <div class="loader mx-auto"></div>
+                        <p class="mt-3 text-sm text-slate-600">Simulation en cours...</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+        
+        <section id="results-section" class="hidden mt-10">
+            <div class="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-2xl font-bold mb-6 text-slate-900">Résultats de la Simulation</h2>
+                <div id="results-container"></div>
+            </div>
+        </section>
+
+        <footer class="text-center py-8 mt-8 text-slate-500 text-sm">
+            <p>&copy; 2025 Simulation Retraite. Tous droits réservés.</p>
+        </footer>
+    </div>
+
+    <script>
+        // --- Modal Logic ---
+        const modal = document.getElementById('notification-modal');
+        const modalMessage = document.getElementById('modal-message');
+
+        function showModal(message) {
+            modalMessage.textContent = message;
+            modal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+        }
+
+        // --- Simulation Logic ---
+        function generateRandomSeeds() {
+            document.getElementById('germe_ix').value = Math.floor(Math.random() * 30000) + 1;
+            document.getElementById('germe_iy').value = Math.floor(Math.random() * 30000) + 1;
+            document.getElementById('germe_iz').value = Math.floor(Math.random() * 30000) + 1;
+        }
+        
+        async function runSimulation() {
+            document.getElementById('loader').classList.remove('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+            
+            const germeIX = document.getElementById('germe_ix').value;
+            const germeIY = document.getElementById('germe_iy').value;
+            const germeIZ = document.getElementById('germe_iz').value;
+            
+            const selectedScenarios = [];
+            document.querySelectorAll('input[name="scenarios"]:checked').forEach(scenario => {
+                selectedScenarios.push(scenario.value);
+            });
+            
+            if (selectedScenarios.length === 0) {
+                showModal("Veuillez sélectionner au moins un scénario.");
+                document.getElementById('loader').classList.add('hidden');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/run_simulation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        germe_ix: germeIX,
+                        germe_iy: germeIY,
+                        germe_iz: germeIZ,
+                        scenarios: selectedScenarios.join(',')
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Erreur du serveur: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(data.results);
+                    document.getElementById('results-section').classList.remove('hidden');
+                    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    showModal(`Erreur de simulation: ${data.error || 'Une erreur inconnue est survenue.'}`);
+                }
+            } catch (error) {
+                showModal(`Erreur de communication: ${error.message}`);
+            } finally {
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+        
+        function displayResults(data) {
+            const container = document.getElementById('results-container');
+            container.innerHTML = '';
+            
+            if (!data) {
+                container.innerHTML = '<p class="text-red-500">Aucun résultat disponible.</p>';
+                return;
+            }
+            
+            const tabsContainer = document.createElement('div');
+            tabsContainer.className = 'tabs mb-6 flex border-b border-slate-200 overflow-x-auto -mx-4 px-4';
+            const tabs = [
+                { id: 'summary', name: 'Résumé' },
+                { id: 'tables', name: 'Tableaux' },
+                { id: 'graphs', name: 'Graphiques' },
+                { id: 'analysis', name: 'Analyse' },
+                { id: 'confidence', name: 'IC95 Réserve' },
+                { id: 'reserves', name: 'Récap Réserves' },
+                { id: 'pdf', name: 'Rapport PDF' },
+            ];
+            tabsContainer.innerHTML = tabs.map((tab, index) => `
+                <button class="tab-btn ${index === 0 ? 'active' : ''} px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-blue-600 whitespace-nowrap" data-tab="${tab.id}">${tab.name}</button>
+            `).join('');
+            container.appendChild(tabsContainer);
+            
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'tab-content';
+            contentContainer.innerHTML = tabs.map((tab, index) => `
+                <div id="${tab.id}-tab" class="tab-pane ${index !== 0 ? 'hidden' : ''} p-1"></div>
+            `).join('');
+            container.appendChild(contentContainer);
+            
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                    document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+                    
+                    button.classList.add('active');
+                    const tabId = button.getAttribute('data-tab') + '-tab';
+                    document.getElementById(tabId).classList.remove('hidden');
+                });
+            });
+            
+            fillSummaryTab(data);
+            fillTablesTab(data);
+            fillGraphsTab(data);
+            fillAnalysisTab(data);
+            fillConfidenceTab(data);
+            fillReservesTab(data);
+            setupPdfTab(data);
+        }
+        
+        function fillSummaryTab(data) {
+            const container = document.getElementById('summary-tab');
+            if (!data || !data.results) {
+                container.innerHTML = "<p>Données de résumé non disponibles.</p>";
+                return;
+            }
+
+            const firstScenarioId = Object.keys(data.results)[0];
+            const scenarioData = data.results[firstScenarioId];
+            
+            if (!scenarioData || !scenarioData.averages || scenarioData.averages.length === 0) {
+                container.innerHTML = "<p>Données de résumé non disponibles pour le scénario.</p>";
+                return;
+            }
+            
+            const lastYearData = scenarioData.averages[scenarioData.averages.length - 1];
+            
+            const keyIndicators = {
+                TotEmp: Math.round(lastYearData.TotEmp).toLocaleString('fr-FR'),
+                TotRet: Math.round(lastYearData.TotRet).toLocaleString('fr-FR'),
+                TotCotis: `${(lastYearData.TotCotis / 1e9).toFixed(2)} Md DH`,
+                TotPens: `${(lastYearData.TotPens / 1e9).toFixed(2)} Md DH`,
+                Reserve: `${(lastYearData.Reserve / 1e9).toFixed(2)} Md DH`,
+            };
+
+            const reservePlotUrl = data.plots.reserve_evolution ? `/static/images/${data.plots.reserve_evolution}?t=${new Date().getTime()}` : 'https://placehold.co/600x400/e2e8f0/475569?text=Graphique+Indisponible';
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                    <div class="lg:col-span-3 bg-slate-50 p-4 rounded-lg">
+                        <h3 class="font-bold text-lg mb-3">Évolution de la Réserve Moyenne</h3>
+                        <img id="reserve-plot" src="${reservePlotUrl}" class="w-full rounded-md" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/475569?text=Erreur+de+chargement';">
+                    </div>
+                    <div class="lg:col-span-2">
+                        <h3 class="font-bold text-lg mb-3">Indicateurs Clés (${lastYearData.Year})</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="bg-slate-50 p-4 rounded-lg"><p class="text-sm text-slate-500">Employés</p><p class="text-2xl font-bold">${keyIndicators.TotEmp}</p></div>
+                            <div class="bg-slate-50 p-4 rounded-lg"><p class="text-sm text-slate-500">Retraités</p><p class="text-2xl font-bold">${keyIndicators.TotRet}</p></div>
+                            <div class="bg-slate-50 p-4 rounded-lg"><p class="text-sm text-slate-500">Cotisations</p><p class="text-2xl font-bold">${keyIndicators.TotCotis}</p></div>
+                            <div class="bg-slate-50 p-4 rounded-lg"><p class="text-sm text-slate-500">Pensions</p><p class="text-2xl font-bold">${keyIndicators.TotPens}</p></div>
+                            <div class="sm:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-200"><p class="text-sm text-blue-600">Réserve finale</p><p class="text-3xl font-extrabold text-blue-700">${keyIndicators.Reserve}</p></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function fillTablesTab(data) {
+            const container = document.getElementById('tables-tab');
+
+            let yearlyTableHtml = '';
+            if (data.summary_tables) {
+                const tableData = [];
+                for (const year of [2025, 2030, 2035]) {
+                    if (data.summary_tables[year]) {
+                        for (const [scenarioName, scenarioData] of Object.entries(data.summary_tables[year])) {
+                            const mean = scenarioData.mean;
+                            tableData.push({
+                                'Scénario': scenarioName,
+                                'Année': year,
+                                'Employés': Math.round(mean.TotEmp),
+                                'Retraités': Math.round(mean.TotRet),
+                                'Cotisations (Md DH)': (mean.TotCotis / 1e9).toFixed(2),
+                                'Pensions (Md DH)': (mean.TotPens / 1e9).toFixed(2),
+                                'Réserve (Md DH)': (mean.Reserve / 1e9).toFixed(2),
+                            });
+                        }
+                    }
+                }
+                yearlyTableHtml = renderHtmlTable(tableData);
+            } else {
+                yearlyTableHtml = '<p class="text-slate-500">Aucune donnée à afficher.</p>';
+            }
+
+            let reserveTableHtml = '';
+            if (data.reserve_tables) {
+                const tableData = [];
+                for (const [scenarioName, records] of Object.entries(data.reserve_tables)) {
+                     for (const record of records) {
+                         tableData.push({
+                            'Scénario': scenarioName,
+                            'Simulation': record.Simulation,
+                            'Année': record.Year,
+                            'Réserve (Md DH)': (record.Reserve / 1e9).toFixed(2)
+                         });
+                     }
+                }
+                reserveTableHtml = renderHtmlTable(tableData);
+            } else {
+                reserveTableHtml = '<p class="text-slate-500">Aucune donnée à afficher.</p>';
+            }
+
+            container.innerHTML = `
+                <div class="space-y-8">
+                    <div>
+                        <h3 class="font-bold text-lg mb-3">Tableau Synthétique (2025, 2030, 2035)</h3>
+                        <div class="overflow-x-auto" id="yearly-table">${yearlyTableHtml}</div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg mb-3">Tableau Réserve par Simulation</h3>
+                        <div class="overflow-x-auto" id="reserve-table">${reserveTableHtml}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderHtmlTable(tableData) {
+            if (!tableData || tableData.length === 0) return '<p class="text-slate-500">Aucune donnée à afficher.</p>';
+            
+            const headers = Object.keys(tableData[0]);
+            let html = '<table class="min-w-full text-sm"><thead><tr class="bg-slate-100">';
+            headers.forEach(h => html += `<th class="p-3 text-left font-semibold text-slate-600">${h}</th>`);
+            html += '</tr></thead><tbody class="divide-y divide-slate-200">';
+            
+            tableData.forEach(row => {
+                html += '<tr>';
+                headers.forEach(h => html += `<td class="p-3 whitespace-nowrap">${row[h]}</td>`);
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function fillGraphsTab(data) {
+             const container = document.getElementById('graphs-tab');
+             container.innerHTML = '';
+             if (data.plots && data.plots.indicator_comparisons) {
+                const plotsHtml = Object.entries(data.plots.indicator_comparisons).map(([indicator, filename]) => {
+                    const plotUrl = `/static/images/${filename}?t=${new Date().getTime()}`;
+                    return `
+                        <div class="bg-slate-50 p-4 rounded-lg">
+                            <h4 class="font-bold mb-2">${indicator}</h4>
+                            <img src="${plotUrl}" class="w-full rounded" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/475569?text=Graphique+Indisponible';">
+                        </div>
+                    `;
+                }).join('');
+                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">${plotsHtml}</div>`;
+             } else {
+                container.innerHTML = '<p class="text-slate-500">Aucun graphique disponible.</p>';
+             }
+        }
+
+        function fillAnalysisTab(data) {
+            const container = document.getElementById('analysis-tab');
+            const comments = data.comments || "Aucune analyse générée.";
+            container.innerHTML = `
+                <div class="bg-blue-50 p-6 rounded-lg border border-blue-200 prose max-w-none">
+                    <h3 class="font-bold text-lg mb-3 text-blue-800">Analyse des Résultats</h3>
+                    <div class="whitespace-pre-line text-slate-700">${comments}</div>
+                </div>
+            `;
+        }
+
+        function fillConfidenceTab(data) {
+            const container = document.getElementById('confidence-tab');
+            container.innerHTML = `
+                <h3 class="font-bold text-lg mb-3">Intervalles de Confiance (95%) pour la Réserve</h3>
+                <div class="overflow-x-auto">${renderHtmlTable(data.confidence_table)}</div>
+            `;
+        }
+
+        function fillReservesTab(data) {
+            const container = document.getElementById('reserves-tab');
+            if(data.overall_reserve_table) {
+                const formattedData = data.overall_reserve_table.map(row => {
+                    const newRow = { Year: row.Year };
+                    Object.keys(row).filter(k => k !== 'Year').forEach(key => {
+                        newRow[`${key} (Md DH)`] = (row[key] / 1e9).toFixed(2);
+                    });
+                    return newRow;
+                });
+                container.innerHTML = `
+                    <h3 class="font-bold text-lg mb-3">Récapitulatif des Réserves Moyennes</h3>
+                    <div class="overflow-x-auto">${renderHtmlTable(formattedData)}</div>
+                `;
+            } else {
+                 container.innerHTML = '<p class="text-slate-500">Aucune donnée à afficher.</p>';
+            }
+        }
+
+        function setupPdfTab(data) {
+            const container = document.getElementById('pdf-tab');
+            if (data.pdf_report) {
+                container.innerHTML = `
+                    <div class="text-center bg-slate-50 p-8 rounded-lg">
+                        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                            <svg class="h-8 w-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75l3 3m0 0l3-3m-3 3v-7.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2">Rapport PDF Complet Prêt</h3>
+                        <p class="text-slate-500 mb-6">Le rapport <span class="font-semibold text-slate-700">${data.pdf_report}</span> a été généré avec succès.</p>
+                        <button onclick="downloadPdf('${data.pdf_report}')" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-blue-700">
+                            Télécharger le Rapport
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '<p class="text-slate-500">La génération du rapport PDF a échoué ou est désactivée.</p>';
+            }
+        }
+        
+        function downloadPdf(filename) {
+            window.location.href = '/download_pdf/' + filename;
+        }
+
+    </script>
+
+</body>
+</html>
